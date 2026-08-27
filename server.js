@@ -115,6 +115,14 @@ app.post('/upload', upload.single('zip'), async (req, res) => {
 
     fs.unlinkSync(req.file.path);
 
+    // Создаём заглушку для server/vitePlugin.mjs если отсутствует в ZIP
+    const serverDir = path.join(workDir, 'server');
+    const vitePluginPath = path.join(serverDir, 'vitePlugin.mjs');
+    if (!fs.existsSync(vitePluginPath)) {
+      fs.mkdirSync(serverDir, { recursive: true });
+      fs.writeFileSync(vitePluginPath, `export default function demoApiPlugin() { return { name: 'demo-api-plugin' }; }\n`);
+    }
+
     console.log(`[${id}] npm install...`);
     execSync('npm install --include=dev', { cwd: workDir, timeout: 120000 });
 
