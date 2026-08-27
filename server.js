@@ -109,6 +109,20 @@ async function runBuild(id, zipPath) {
     if (!projectRoot) throw new Error('package.json не найден в ZIP');
     jobs[id].step = 'Нашёл проект: ' + path.relative(workDir, projectRoot);
 
+    // Заглушка для src/main.tsx если отсутствует
+    const mainTsxPath = path.join(projectRoot, 'src', 'main.tsx');
+    if (!fs.existsSync(mainTsxPath)) {
+      fs.writeFileSync(mainTsxPath,
+`import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.tsx'
+import './index.css'
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode><App /></React.StrictMode>
+)
+`);
+    }
+
     // Заглушка для vitePlugin.mjs если отсутствует
     const serverDir = path.join(projectRoot, 'server');
     const vitePluginPath = path.join(serverDir, 'vitePlugin.mjs');
