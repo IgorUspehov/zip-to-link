@@ -116,7 +116,7 @@ app.post('/upload', upload.single('zip'), async (req, res) => {
     fs.unlinkSync(req.file.path);
 
     console.log(`[${id}] npm install...`);
-    execSync('npm install --prefer-offline', { cwd: workDir, timeout: 120000 });
+    execSync('npm install --include=dev', { cwd: workDir, timeout: 120000 });
 
     console.log(`[${id}] npm run build...`);
     execSync('npm run build', { cwd: workDir, timeout: 120000 });
