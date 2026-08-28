@@ -15,6 +15,8 @@ const TG_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TG_CHAT = process.env.TELEGRAM_CHAT_ID;
 
 function findSiteRoot(dir) {
+  const siteDir = path.join(dir, 'site');
+  if (fs.existsSync(path.join(siteDir, 'index.html'))) return siteDir;
   if (fs.existsSync(path.join(dir, 'index.html'))) return dir;
   const kids = fs.readdirSync(dir, { withFileTypes: true }).filter(d => d.isDirectory());
   for (const kid of kids) {
