@@ -93,6 +93,17 @@ app.post('/upload', upload.single('zip'), async (req, res) => {
     fs.cpSync(src, dest, { recursive: true });
     fs.rmSync(unzipDir, { recursive: true, force: true });
 
+    // Исправляем абсолютные пути /assets/ на относительные
+    const indexPath = path.join(dest, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      let html = fs.readFileSync(indexPath, 'utf8');
+      html = html.replace(/src="\/assets\//g, 'src="./assets/');
+      html = html.replace(/href="\/assets\//g, 'href="./assets/');
+      html = html.replace(/src='\/assets\//g, "src='./assets/");
+      html = html.replace(/href='\/assets\//g, "href='./assets/");
+      fs.writeFileSync(indexPath, html);
+    }
+
     const url = `${PUBLIC_URL}/sites/${slug}/`;
 
     if (TG_TOKEN && TG_CHAT) {
