@@ -193,10 +193,14 @@ function findProjectRoot(dir) {
 async function deployToCloudflare(distDir) {
   const fetch = (await import('node-fetch')).default;
   const form = new FormData();
+  // manifest обязателен для Cloudflare Pages API
+  const manifest = {};
   for (const file of getAllFiles(distDir)) {
     const relPath = path.relative(distDir, file);
     form.append('files', fs.createReadStream(file), { filename: relPath });
+    manifest['/' + relPath] = relPath;
   }
+  form.append('manifest', JSON.stringify(manifest));
   const response = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT}/pages/projects/${CF_PROJECT}/deployments`,
     { method: 'POST', headers: { 'Authorization': `Bearer ${CF_TOKEN}`, ...form.getHeaders() }, body: form }
