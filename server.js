@@ -24,6 +24,49 @@ function findSiteRoot(dir) {
   throw new Error('В ZIP нет index.html');
 }
 
+const FACTORY_ENGINE_ERROR =
+  'В ZIP лежит движок Factory (Web Studio SDK), а не готовый сайт клиента. Не упаковывайте dist/ вручную — соберите ZIP через Delivery Center с manifest клиента.';
+
+const ENGINE_TITLE_PATTERNS = [
+  /Web Studio SDK/i,
+  /движок для веб-студий/i,
+  /Website\s*\+\s*CRM\s*\+\s*Online Booking/i,
+  /^Website\s*\+\s*CRM/i,
+];
+
+function assertClientSiteNotEngine(src) {
+  const indexPath = path.join(src, 'index.html');
+  const html = fs.readFileSync(indexPath, 'utf8');
+
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : '';
+
+  for (const pattern of ENGINE_TITLE_PATTERNS) {
+    if (pattern.test(title)) {
+      throw new Error(FACTORY_ENGINE_ERROR);
+    }
+  }
+
+  if (html.includes('__FACTORY_BOOTSTRAP__')) {
+    const jsonMatch = html.match(/__FACTORY_BOOTSTRAP__\s*=\s*(\{[\s\S]*?\})\s*;/);
+    if (!jsonMatch) {
+      throw new Error(FACTORY_ENGINE_ERROR);
+    }
+    let bootstrap;
+    try {
+      bootstrap = JSON.parse(jsonMatch[1]);
+    } catch {
+      throw new Error(FACTORY_ENGINE_ERROR);
+    }
+    const modeOk = bootstrap.mode === 'product';
+    const nameOk = Boolean(bootstrap.manifest?.business?.name);
+    if (!modeOk || !nameOk) {
+      throw new Error(FACTORY_ENGINE_ERROR);
+    }
+  }
+}
+
+
 app.use('/sites', express.static(SITES_DIR));
 
 app.get('/', (req, res) => {
@@ -79,19 +122,22 @@ async function upload(){
 });
 
 app.post('/upload', upload.single('zip'), async (req, res) => {
+  let unzipDir = null;
   try {
     if (!req.file) throw new Error('Нет файла');
     const slug = randomBytes(4).toString('hex');
-    const unzipDir = path.join('/tmp', `unzip-${slug}`);
+    unzipDir = path.join('/tmp', `unzip-${slug}`);
     fs.mkdirSync(unzipDir, { recursive: true });
 
     new AdmZip(req.file.path).extractAllTo(unzipDir, true);
     fs.unlinkSync(req.file.path);
 
     const src = findSiteRoot(unzipDir);
+    assertClientSiteNotEngine(src);
     const dest = path.join(SITES_DIR, slug);
     fs.cpSync(src, dest, { recursive: true });
     fs.rmSync(unzipDir, { recursive: true, force: true });
+    unzipDir = null;
 
     // Исправляем абсолютные пути /assets/ на относительные
     const indexPath = path.join(dest, 'index.html');
@@ -116,6 +162,9 @@ app.post('/upload', upload.single('zip'), async (req, res) => {
 
     res.json({ ok: true, url });
   } catch (e) {
+    if (unzipDir && fs.existsSync(unzipDir)) {
+      fs.rmSync(unzipDir, { recursive: true, force: true });
+    }
     res.status(400).json({ ok: false, error: String(e.message || e) });
   }
 });
