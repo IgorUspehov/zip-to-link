@@ -109,8 +109,14 @@ async function runBuild(id, zipPath) {
     if (!projectRoot) throw new Error('package.json не найден в ZIP');
     jobs[id].step = 'Нашёл проект: ' + path.relative(workDir, projectRoot);
 
-    // Заглушка для src/main.tsx если отсутствует
-    const mainTsxPath = path.join(projectRoot, 'src', 'main.tsx');
+    // Заглушки для отсутствующих файлов
+    const srcDir = path.join(projectRoot, 'src');
+    fs.mkdirSync(srcDir, { recursive: true });
+    const indexCssPath = path.join(srcDir, 'index.css');
+    if (!fs.existsSync(indexCssPath)) {
+      fs.writeFileSync(indexCssPath, '/* stub */');
+    }
+    const mainTsxPath = path.join(srcDir, 'main.tsx');
     if (!fs.existsSync(mainTsxPath)) {
       fs.writeFileSync(mainTsxPath,
 `import React from 'react'
@@ -122,6 +128,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 )
 `);
     }
+    // Убираем конфликт @types/react-router-dom v5
+    const pkgPath = path.join(projectRoot, 'package.json');
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    if (pkg.devDependencies) delete pkg.devDependencies['@types/react-router-dom'];
+    if (pkg.dependencies) delete pkg.dependencies['@types/react-router-dom'];
+    fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
 
     // Заглушка для vitePlugin.mjs если отсутствует
     const serverDir = path.join(projectRoot, 'server');
