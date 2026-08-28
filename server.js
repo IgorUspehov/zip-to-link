@@ -143,6 +143,17 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       fs.writeFileSync(vitePluginPath, `export default function demoApiPlugin() { return { name: 'demo-api-plugin' }; }\n`);
     }
 
+    // Если dist/ уже есть в ZIP — пропускаем сборку
+    const distDirCheck = path.join(projectRoot, 'dist');
+    if (fs.existsSync(distDirCheck) && fs.readdirSync(distDirCheck).length > 0) {
+      jobs[id].step = 'dist/ найден — пропускаю сборку';
+      const url = await deployToCloudflare(distDirCheck);
+      await sendTelegram('✅ Сайт готов\n🔗 ' + url);
+      fs.rmSync(workDir, { recursive: true, force: true });
+      jobs[id] = { status: 'done', url };
+      return;
+    }
+
     jobs[id].step = 'npm install';
     execSync('npm install --include=dev', { cwd: projectRoot, timeout: 180000 });
 
