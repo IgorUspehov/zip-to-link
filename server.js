@@ -153,12 +153,20 @@ app.post('/upload', upload.single('zip'), async (req, res) => {
     }
 
     const url = `${PUBLIC_URL}/sites/${slug}/`;
+    let businessName = '';
+    const manifestPath = path.join(dest, 'client-manifest.json');
+    if (fs.existsSync(manifestPath)) {
+      try {
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        businessName = manifest.businessName || manifest.business_name || '';
+      } catch {}
+    }
 
     if (TG_TOKEN && TG_CHAT) {
       await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: TG_CHAT, text: `✅ Сайт готов\n🔗 ${url}` }),
+        body: JSON.stringify({ chat_id: TG_CHAT, text: `✅ Сайт готов${businessName ? ' — ' + businessName : ''}\n🔗 ${url}` }),
       });
     }
 
